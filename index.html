@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Mech: Neo Arena</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: none;
+            user-select: none;
+        }
+        .pixel-font {
+            font-family: 'Press Start 2P', monospace;
+        }
+        canvas {
+            background: radial-gradient(circle at center, #090d16 0%, #030712 100%);
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-white min-h-screen flex flex-col items-center justify-between p-4 overflow-hidden">
+
+    <header class="w-full max-w-4xl flex justify-between items-center bg-slate-900/80 backdrop-blur border border-slate-800 rounded-2xl px-6 py-3 shadow-2xl z-10">
+        <div class="flex items-center space-x-3">
+            <div class="bg-purple-600 p-2.5 rounded-xl shadow-inner text-xl">
+                <i class="fa-solid fa-robot animate-pulse"></i>
+            </div>
+            <div>
+                <h1 class="pixel-font text-xs sm:text-sm tracking-wider text-purple-400">サイバー・メック</h1>
+                <p id="gamepad-status" class="text-xs text-amber-400 font-semibold mt-0.5">
+                    <i class="fa-solid fa-triangle-exclamation mr-1"></i>コントローラー未接続 (W/A/S/D + マウス)
+                </p>
+            </div>
+        </div>
+        <div class="flex space-x-6">
+            <div class="text-right">
+                <div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">スコア</div>
+                <div id="score-display" class="pixel-font text-sm sm:text-lg text-emerald-400">0</div>
+            </div>
+            <div class="text-right">
+                <div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">シールド</div>
+                <div id="health-display" class="pixel-font text-sm sm:text-lg text-cyan-400">100%</div>
+            </div>
+        </div>
+    </header>
+
+    <main class="relative w-full max-w-4xl flex-1 my-3 flex items-center justify-center">
+        <div class="relative w-full aspect-[16/9] max-h-[65vh] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-black">
+            <canvas id="gameCanvas" class="w-full h-full"></canvas>
+
+            <!-- Start Screen Overlay -->
+            <div id="start-overlay" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
+                <div class="bg-purple-600/20 border border-purple-500/40 p-4 rounded-3xl mb-4 shadow-xl">
+                    <i class="fa-solid fa-crosshairs text-5xl text-purple-400 animate-bounce"></i>
+                </div>
+                <h2 class="pixel-font text-xl sm:text-2xl text-white mb-2 tracking-wide">サイバー・メック: ネオ・アリーナ</h2>
+                <p class="text-slate-300 text-sm max-w-md mb-6 leading-relaxed">
+                    ツインスティックシューターアクション！ローグドローンを撃破し、エネルギーを死守せよ。ゲームパッド(デュアルスティック)完全対応。
+                </p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-md mb-6 text-xs text-left bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+                    <div>
+                        <div class="text-purple-400 font-bold mb-1"><i class="fa-solid fa-gamepad mr-1"></i> コントローラー操作</div>
+                        <ul class="text-slate-300 space-y-1">
+                            <li>• 左スティック: 移動</li>
+                            <li>• 右スティック: 照準・射撃</li>
+                            <li>• R2 / RT: メインブラスター</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <div class="text-emerald-400 font-bold mb-1"><i class="fa-solid fa-keyboard mr-1"></i> キーボード操作</div>
+                        <ul class="text-slate-300 space-y-1">
+                            <li>• W / A / S / D: 移動</li>
+                            <li>• マウス: 照準</li>
+                            <li>• 左クリック: 射撃</li>
+                        </ul>
+                    </div>
+                </div>
+                <button id="start-btn" class="pixel-font bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs px-8 py-4 rounded-xl shadow-lg transition transform hover:scale-105 active:scale-95 cursor-pointer">
+                    戦闘開始
+                </button>
+            </div>
+
+            <!-- Game Over Overlay -->
+            <div id="gameover-overlay" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20 hidden">
+                <div class="bg-rose-600/20 border border-rose-500/40 p-4 rounded-3xl mb-4 shadow-xl">
+                    <i class="fa-solid fa-skull-crossbones text-5xl text-rose-400 animate-pulse"></i>
+                </div>
+                <h2 class="pixel-font text-xl sm:text-2xl text-rose-500 mb-2">システム・ダウン</h2>
+                <p class="text-slate-300 text-sm mb-4">機体が大破しました。最終スコア:</p>
+                <div id="final-score" class="pixel-font text-3xl text-emerald-400 mb-6">0</div>
+                <button id="restart-btn" class="pixel-font bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs px-8 py-4 rounded-xl shadow-lg transition transform hover:scale-105 active:scale-95 cursor-pointer">
+                    リトライ
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <footer class="w-full max-w-4xl flex flex-col sm:flex-row justify-between items-center text-xs text-slate-400 bg-slate-900/50 border border-slate-800/80 rounded-2xl px-6 py-3 gap-2 z-10">
+        <div class="flex items-center space-x-2">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-purple-500 animate-ping"></span>
+            <span>Twin-Stick Gamepad Engine Active</span>
+        </div>
+        <div>
+            <span>Neo Arena Cybernetics</span>
+        </div>
+    </footer>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const startOverlay = document.getElementById('start-overlay');
+        const gameOverOverlay = document.getElementById('gameover-overlay');
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const scoreDisplay = document.getElementById('score-display');
+        const healthDisplay = document.getElementById('health-display');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const gamepadStatus = document.getElementById('gamepad-status');
+
+        let gameState = 'START'; // START, PLAYING, GAMEOVER
+        let score = 0;
+        let spawnTimer = 0;
+
+        // Player Mecha
+        let player = {
+            x: 0,
+            y: 0,
+            radius: 18,
+            speed: 4.5,
+            angle: 0,
+            health: 100,
+            maxHealth: 100,
+            shootCooldown: 0
+        };
+
+        let bullets = [];
+        let enemies = [];
+        let particles = [];
+        let powerups = [];
+
+        // Mouse tracking for keyboard fallback
+        let mouse = { x: 0, y: 0, down: false };
+        window.addEventListener('mousemove', e => {
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = e.clientX - rect.left;
+            mouse.y = e.clientY - rect.top;
+        });
+        window.addEventListener('mousedown', () => { mouse.down = true; });
+        window.addEventListener('mouseup', () => { mouse.down = false; });
+
+        // Keyboard state
+        const keys = {};
+        window.addEventListener('keydown', e => { keys[e.code] = true; });
+        window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            if (gameState === 'START') {
+                player.x = rect.width / 2;
+                player.y = rect.height / 2;
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function initGame() {
+            const rect = canvas.getBoundingClientRect();
+            player.x = rect.width / 2;
+            player.y = rect.height / 2;
+            player.health = player.maxHealth;
+            bullets = [];
+            enemies = [];
+            particles = [];
+            powerups = [];
+            score = 0;
+            scoreDisplay.textContent = score;
+            healthDisplay.textContent = player.health + '%';
+        }
+
+        function createExplosion(x, y, color, count = 20) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 4 + 1;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: Math.random() * 3 + 1,
+                    color: color,
+                    alpha: 1,
+                    decay: Math.random() * 0.03 + 0.015
+                });
+            }
+        }
+
+        function spawnEnemy() {
+            const rect = canvas.getBoundingClientRect();
+            const edge = Math.floor(Math.random() * 4);
+            let x, y;
+            if (edge === 0) { x = Math.random() * rect.width; y = -30; }
+            else if (edge === 1) { x = rect.width + 30; y = Math.random() * rect.height; }
+            else if (edge === 2) { x = Math.random() * rect.width; y = rect.height + 30; }
+            else { x = -30; y = Math.random() * rect.height; }
+
+            const typeRand = Math.random();
+            let type = 'drone';
+            let color = '#f43f5e';
+            let speed = 2.2;
+            let hp = 1;
+
+            if (typeRand > 0.75) {
+                type = 'tank';
+                color = '#f97316';
+                speed = 1.2;
+                hp = 3;
+            } else if (typeRand < 0.2) {
+                type = 'speeder';
+                color = '#eab308';
+                speed = 3.5;
+                hp = 1;
+            }
+
+            enemies.push({ x, y, type, color, speed, hp, radius: type === 'tank' ? 22 : 14 });
+        }
+
+        function handleGamepadInput() {
+            const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+            let activeGamepad = null;
+
+            for (let i = 0; i < gamepads.length; i++) {
+                if (gamepads[i]) {
+                    activeGamepad = gamepads[i];
+                    break;
+                }
+            }
+
+            const rect = canvas.getBoundingClientRect();
+
+            if (activeGamepad) {
+                gamepadStatus.innerHTML = `<i class="fa-solid fa-gamepad mr-1 text-emerald-400"></i> コントローラー接続中: ${activeGamepad.id.substring(0, 18)}...`;
+                gamepadStatus.className = "text-xs text-emerald-400 font-semibold mt-0.5";
+
+                const deadzone = 0.15;
+                let leftX = activeGamepad.axes[0];
+                let leftY = activeGamepad.axes[1];
+                let rightX = activeGamepad.axes[2];
+                let rightY = activeGamepad.axes[3];
+                let shootTrigger = activeGamepad.buttons[7] ? activeGamepad.buttons[7].value : 0;
+                let shootButton = activeGamepad.buttons[5]?.pressed || activeGamepad.buttons[0]?.pressed;
+
+                // Left stick movement
+                if (Math.abs(leftX) > deadzone) player.x += leftX * player.speed;
+                if (Math.abs(leftY) > deadzone) player.y += leftY * player.speed;
+
+                // Right stick aiming
+                if (Math.abs(rightX) > deadzone || Math.abs(rightY) > deadzone) {
+                    player.angle = Math.atan2(rightY, rightX);
+                }
+
+                // Firing
+                if ((shootTrigger > 0.2 || shootButton) && player.shootCooldown <= 0) {
+                    fireBullet();
+                }
+            } else {
+                gamepadStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i>コントローラー未接続 (W/A/S/D + マウス)`;
+                gamepadStatus.className = "text-xs text-amber-400 font-semibold mt-0.5";
+
+                // Keyboard movement
+                let dx = 0, dy = 0;
+                if (keys['KeyW'] || keys['ArrowUp']) dy -= 1;
+                if (keys['KeyS'] || keys['ArrowDown']) dy += 1;
+                if (keys['KeyA'] || keys['ArrowLeft']) dx -= 1;
+                if (keys['KeyD'] || keys['ArrowRight']) dx += 1;
+
+                if (dx !== 0 && dy !== 0) {
+                    dx *= 0.7071;
+                    dy *= 0.7071;
+                }
+
+                player.x += dx * player.speed;
+                player.y += dy * player.speed;
+
+                // Mouse aiming
+                player.angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+
+                // Mouse firing
+                if (mouse.down && player.shootCooldown <= 0) {
+                    fireBullet();
+                }
+            }
+
+            // Screen boundaries
+            player.x = Math.max(player.radius, Math.min(rect.width - player.radius, player.x));
+            player.y = Math.max(player.radius, Math.min(rect.height - player.radius, player.y));
+        }
+
+        function fireBullet() {
+            const speed = 10;
+            bullets.push({
+                x: player.x + Math.cos(player.angle) * 20,
+                y: player.y + Math.sin(player.angle) * 20,
+                vx: Math.cos(player.angle) * speed,
+                vy: Math.sin(player.angle) * speed,
+                radius: 4,
+                color: '#a855f7'
+            });
+            player.shootCooldown = 10; // frames between shots
+        }
+
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            if (player.shootCooldown > 0) player.shootCooldown--;
+
+            handleGamepadInput();
+
+            // Spawn enemies
+            spawnTimer++;
+            if (spawnTimer > Math.max(25, 75 - Math.floor(score / 300))) {
+                spawnTimer = 0;
+                spawnEnemy();
+            }
+
+            // Update bullets
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                b.x += b.vx;
+                b.y += b.vy;
+
+                const rect = canvas.getBoundingClientRect();
+                if (b.x < 0 || b.x > rect.width || b.y < 0 || b.y > rect.height) {
+                    bullets.splice(i, 1);
+                    continue;
+                }
+
+                // Bullet collision with enemies
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    let e = enemies[j];
+                    const dist = Math.hypot(b.x - e.x, b.y - e.y);
+                    if (dist < b.radius + e.radius) {
+                        e.hp--;
+                        bullets.splice(i, 1);
+                        createExplosion(b.x, b.y, '#c084fc', 6);
+
+                        if (e.hp <= 0) {
+                            createExplosion(e.x, e.y, e.color, 20);
+                            score += e.type === 'tank' ? 150 : 50;
+                            scoreDisplay.textContent = score;
+
+                            // Chance to drop powerup
+                            if (Math.random() < 0.2) {
+                                powerups.push({ x: e.x, y: e.y, radius: 10, type: Math.random() > 0.5 ? 'health' : 'score' });
+                            }
+
+                            enemies.splice(j, 1);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Update enemies
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let e = enemies[i];
+                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                e.x += Math.cos(angle) * e.speed;
+                e.y += Math.sin(angle) * e.speed;
+
+                // Collision with player
+                const dist = Math.hypot(player.x - e.x, player.y - e.y);
+                if (dist < player.radius + e.radius) {
+                    player.health -= e.type === 'tank' ? 25 : 15;
+                    healthDisplay.textContent = Math.max(0, player.health) + '%';
+                    createExplosion(e.x, e.y, e.color, 25);
+                    enemies.splice(i, 1);
+
+                    if (player.health <= 0) {
+                        gameState = 'GAMEOVER';
+                        finalScoreDisplay.textContent = score;
+                        gameOverOverlay.classList.remove('hidden');
+                    }
+                }
+            }
+
+            // Update powerups
+            for (let i = powerups.length - 1; i >= 0; i--) {
+                let p = powerups[i];
+                const dist = Math.hypot(player.x - p.x, player.y - p.y);
+                if (dist < player.radius + p.radius) {
+                    if (p.type === 'health') {
+                        player.health = Math.min(player.maxHealth, player.health + 30);
+                        healthDisplay.textContent = player.health + '%';
+                    } else {
+                        score += 300;
+                        scoreDisplay.textContent = score;
+                    }
+                    createExplosion(p.x, p.y, '#38bdf8', 15);
+                    powerups.splice(i, 1);
+                }
+            }
+
+            // Update particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let pt = particles[i];
+                pt.x += pt.vx;
+                pt.y += pt.vy;
+                pt.alpha -= pt.decay;
+                if (pt.alpha <= 0) particles.splice(i, 1);
+            }
+        }
+
+        function render() {
+            const rect = canvas.getBoundingClientRect();
+            ctx.clearRect(0, 0, rect.width, rect.height);
+
+            // Draw Grid Background
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            const gridSize = 40;
+            for (let x = 0; x < rect.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, rect.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < rect.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(rect.width, y);
+                ctx.stroke();
+            }
+
+            // Draw Powerups
+            powerups.forEach(p => {
+                ctx.save();
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = p.type === 'health' ? '#38bdf8' : '#10b981';
+                ctx.fillStyle = p.type === 'health' ? '#38bdf8' : '#10b981';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // Draw Bullets
+            bullets.forEach(b => {
+                ctx.save();
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = b.color;
+                ctx.fillStyle = b.color;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // Draw Enemies
+            enemies.forEach(e => {
+                ctx.save();
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = e.color;
+                ctx.fillStyle = e.color;
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // Draw Particles
+            particles.forEach(pt => {
+                ctx.save();
+                ctx.globalAlpha = pt.alpha;
+                ctx.fillStyle = pt.color;
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, pt.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // Draw Player Mecha
+            if (gameState === 'PLAYING' || gameState === 'START') {
+                ctx.save();
+                ctx.translate(player.x, player.y);
+                ctx.rotate(player.angle);
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#a855f7';
+
+                // Body
+                ctx.fillStyle = '#7c3aed';
+                ctx.beginPath();
+                ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Turret Cannon
+                ctx.fillStyle = '#c084fc';
+                ctx.fillRect(0, -5, player.radius + 8, 10);
+
+                ctx.restore();
+            }
+        }
+
+        function gameLoop() {
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        startBtn.addEventListener('click', () => {
+            startOverlay.classList.add('hidden');
+            initGame();
+            gameState = 'PLAYING';
+        });
+
+        restartBtn.addEventListener('click', () => {
+            gameOverOverlay.classList.add('hidden');
+            initGame();
+            gameState = 'PLAYING';
+        });
+
+        window.onload = () => {
+            resizeCanvas();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>

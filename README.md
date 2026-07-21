@@ -1,1 +1,0 @@
-# konntorora-game3
